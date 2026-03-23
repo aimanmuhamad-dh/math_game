@@ -44,6 +44,7 @@
         .header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 2rem;
             font-size: 1.5rem;
             font-weight: bold;
@@ -51,6 +52,27 @@
 
         .score { color: var(--primary); }
         .streak { color: var(--warning); }
+
+        .operation-selector {
+            display: flex;
+            align-items: center;
+        }
+
+        #operation-select {
+            font-family: inherit;
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            border-radius: 10px;
+            border: 2px solid var(--primary);
+            background-color: white;
+            color: var(--primary);
+            cursor: pointer;
+        }
+
+        #operation-select:focus {
+            outline: none;
+            box-shadow: 0 0 5px var(--primary);
+        }
 
         .question {
             font-size: 4rem;
@@ -174,6 +196,14 @@
     <div class="container">
         <div class="header">
             <div class="score">Score: <span id="score-val">0</span></div>
+            <div class="operation-selector">
+                <select id="operation-select">
+                    <option value="addition">Addition</option>
+                    <option value="subtraction">Subtraction</option>
+                    <option value="multiplication" selected>Multiplication</option>
+                    <option value="division">Division</option>
+                </select>
+            </div>
             <div class="streak">🔥 Streak: <span id="streak-val">0</span></div>
         </div>
 
@@ -216,6 +246,7 @@
         const streakEl = document.getElementById('streak-val');
         const feedbackEl = document.getElementById('feedback');
         const levelUpEl = document.getElementById('level-up');
+        const operationSelect = document.getElementById('operation-select');
 
         // Audio Context for simple sounds
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -272,49 +303,54 @@
             });
             feedbackEl.className = 'feedback';
 
-            // Determine max number based on level/score
-            let maxNum = 5 + Math.floor(score / 10);
-            if (maxNum > 12) maxNum = 12;
+            const operation = operationSelect.value;
+            let num1, num2, question, answer;
 
-            const num1 = Math.floor(Math.random() * maxNum) + 1;
-            const num2 = Math.floor(Math.random() * maxNum) + 1;
-            currentAnswer = num1 * num2;
+            switch (operation) {
+                case 'addition':
+                    num1 = Math.floor(Math.random() * 10);
+                    num2 = Math.floor(Math.random() * 10);
+                    answer = num1 + num2;
+                    question = `${num1} + ${num2} = ?`;
+                    break;
+                case 'subtraction':
+                    num1 = Math.floor(Math.random() * 10);
+                    num2 = Math.floor(Math.random() * (num1 + 1));
+                    answer = num1 - num2;
+                    question = `${num1} - ${num2} = ?`;
+                    break;
+                case 'multiplication':
+                    num1 = Math.floor(Math.random() * 10);
+                    num2 = Math.floor(Math.random() * 10);
+                    answer = num1 * num2;
+                    question = `${num1} × ${num2} = ?`;
+                    break;
+                case 'division':
+                    num2 = Math.floor(Math.random() * 9) + 1;
+                    let product = num2 * (Math.floor(Math.random() * 9) + 1);
+                    num1 = product;
+                    answer = num1 / num2;
+                    question = `${num1} ÷ ${num2} = ?`;
+                    break;
+            }
 
-            questionEl.textContent = `${num1} × ${num2} = ?`;
+            currentAnswer = answer;
+            questionEl.textContent = question;
 
             // Generate wrong options
             let answers = [currentAnswer];
-
             let attempts = 0;
             while (answers.length < 4) {
                 attempts++;
-                // Generate plausible distractors
                 let distractor;
-                const strategy = Math.random();
-                if (strategy < 0.3 && attempts < 10) {
-                    // Off by one error in num1
-                    distractor = (num1 + (Math.random() > 0.5 ? 1 : -1)) * num2;
-                } else if (strategy < 0.6 && attempts < 10) {
-                    // Off by one error in num2
-                    distractor = num1 * (num2 + (Math.random() > 0.5 ? 1 : -1));
-                } else if (strategy < 0.8 && attempts < 10) {
-                    // Addition instead of multiplication
-                    distractor = num1 + num2;
-                } else {
-                    // Random number close by
-                    const offset = Math.floor(Math.random() * 20) - 10;
-                    distractor = currentAnswer + offset;
+                const offset = Math.floor(Math.random() * 10) - 5;
+                distractor = currentAnswer + offset;
 
-                    // Failsafe for very long loops
-                    if (distractor === currentAnswer || distractor <= 0) {
-                        distractor = currentAnswer + attempts;
-                    }
-                }
-
-                // Ensure positive, not 0 if we don't want it, and unique
-                if (distractor > 0 && !answers.includes(distractor)) {
+                if (distractor !== currentAnswer && distractor >= 0 && !answers.includes(distractor)) {
                     answers.push(distractor);
                 }
+                
+                if (attempts > 100) break; // Avoid infinite loops
             }
 
             // Shuffle array
@@ -404,6 +440,8 @@
                 }
             });
         }
+        
+        operationSelect.addEventListener('change', generateQuestion);
 
         document.addEventListener('keydown', (e) => {
             if (isWaitingForNext) return;
